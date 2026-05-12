@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { HelplineProps } from '../Helpline';
+import { HelplineProps } from '../../types/components';
 
 export default function HelplineV1({ whatsappNumber = "+880 1712-508063" }: HelplineProps) {
   const formattedNumber = whatsappNumber.replace(/[^0-9+]/g, '');

@@ -1,4 +1,4 @@
-import React from "react";
+import type { ReactNode } from "react";
 
 /**
  * Shared prop types for all Puck component configs in the builder.
@@ -28,7 +28,7 @@ export type PuckProps = {
     maxWidth?: string;
   };
   Columns: {
-    columns: { children: React.ReactNode }[];
+    columns: { children: ReactNode }[];
   };
   Hero: {
     backgroundImage?: string;
@@ -99,16 +99,19 @@ export type PuckProps = {
     textColor?: string;
   };
   GalleryCol: {
+    version?: "default" | "v0" | "v1" | "v2" | "v3" | "v4" | "v5";
     title?: string;
     description?: string;
     images?: { src: string; alt?: string }[];
   };
   GalleryGrid: {
+    version?: "default" | "v0" | "v1" | "v2" | "v3" | "v4" | "v5";
     title?: string;
     description?: string;
     images?: { src: string; alt?: string }[];
   };
   GalleryGrid6: {
+    version?: "default" | "v0" | "v1" | "v2" | "v3" | "v4" | "v5";
     title?: string;
     description?: string;
     images?: { src: string; alt?: string }[];
@@ -172,6 +175,7 @@ export type PuckProps = {
     };
   };
   SizeChart: {
+    version?: "default" | "v0" | "v1" | "v2" | "v3" | "v4" | "v5";
     title?: string;
     description?: string;
     sizeData?: {
@@ -224,6 +228,7 @@ export type PuckProps = {
     backgroundColor?: string;
   };
   Testimonials: {
+    version?: "default" | "v0" | "v1" | "v2" | "v3" | "v4" | "v5";
     title?: string;
     description?: string;
     images?: { src: string; alt?: string }[];
@@ -236,6 +241,7 @@ export type PuckProps = {
     backgroundColor?: string;
   };
   FAQ: {
+    version?: "default" | "v0" | "v1" | "v2" | "v3" | "v4" | "v5";
     heading?: string;
     descriptionPart1?: string;
     descriptionPart2?: string;
