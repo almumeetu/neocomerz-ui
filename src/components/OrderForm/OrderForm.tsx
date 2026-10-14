@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import type { OrderFormProps } from "../../types/components";
 import ProductList from "./ProductList";
 import CartSummary from "./CartSummary";
@@ -34,6 +34,14 @@ export default function OrderForm({
   productId,
   orderPlacementUrl,
   allowedVariants,
+  maxVariantsToShow,
+  maxProductsToShow,
+  channelId,
+  currencyCode = "BDT",
+  onProductView,
+  onAddToCart,
+  onCheckoutBegin,
+  onPurchase,
 }: OrderFormProps) {
   const primaryColor = primaryColorProp ?? colors.primary ?? "#F36621";
   const textColor = textColorProp ?? colors.text ?? "#27272a";
@@ -54,6 +62,14 @@ export default function OrderForm({
   const [isLoadingProduct, setIsLoadingProduct] = useState(false);
   const [selectedVariantId, setSelectedVariantId] = useState<string | number>("");
   const [selectedSize, setSelectedSize] = useState<string>("");
+  const hasFiredViewItemRef = useRef(false);
+  const hasFiredCheckoutRef = useRef(false);
+  const previousCartStateRef = useRef<{
+    productId: unknown;
+    quantity: number;
+    selectedVariantId: string | number;
+    selectedSize: string;
+  } | null>(null);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -199,6 +215,81 @@ export default function OrderForm({
   const subtotal = productPriceNum * quantity;
   const total = subtotal + shippingCharge;
 
+  const buildGtmItem = (itemQuantity = quantity) => {
+    const category = productData?.["category"];
+    const categoryName =
+      typeof category === "string"
+        ? category
+        : ((category as Record<string, unknown> | undefined)?.["name"] ?? "");
+
+    return {
+      item_id: String(effectiveProductId),
+      item_name: getLocalizedString(rawProductName),
+      item_category: getLocalizedString(categoryName),
+      item_variant:
+        getLocalizedString(globalVariantValue || "") +
+        (selectedSize ? ` / ${selectedSize}` : ""),
+      price: productPriceNum,
+      currency: currencyCode,
+      quantity: itemQuantity,
+    };
+  };
+
+  useEffect(() => {
+    if (!productData?.["id"] || hasFiredViewItemRef.current) return;
+    hasFiredViewItemRef.current = true;
+    onProductView?.({
+      currency: currencyCode,
+      value: productPriceNum,
+      items: [buildGtmItem(1)],
+    });
+    // The ref ensures the view event fires once for the loaded product.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productData?.["id"]]);
+
+  useEffect(() => {
+    const nextCartState = {
+      productId: productData?.["id"],
+      quantity,
+      selectedVariantId,
+      selectedSize,
+    };
+    const previousCartState = previousCartStateRef.current;
+    previousCartStateRef.current = nextCartState;
+
+    if (
+      !previousCartState ||
+      previousCartState.productId !== nextCartState.productId ||
+      !productData?.["id"]
+    ) {
+      return;
+    }
+
+    const cartChanged =
+      previousCartState.quantity !== quantity ||
+      previousCartState.selectedVariantId !== selectedVariantId ||
+      previousCartState.selectedSize !== selectedSize;
+    if (!cartChanged) return;
+
+    onAddToCart?.({
+      currency: currencyCode,
+      value: subtotal,
+      items: [buildGtmItem()],
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quantity, selectedVariantId, selectedSize, productData?.["id"]]);
+
+  const handleBeginCheckout = () => {
+    if (hasFiredCheckoutRef.current || !productData?.["id"]) return;
+    hasFiredCheckoutRef.current = true;
+    onCheckoutBegin?.({
+      currency: currencyCode,
+      value: total,
+      shipping: shippingCharge,
+      items: [buildGtmItem()],
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -212,17 +303,70 @@ export default function OrderForm({
       orderPlacementUrl ||
       (baseUrl ? `${baseUrl.replace(/\/$/, "")}/orders` : null);
 
-    const payload = {
-      product_id: effectiveProductId,
-      variant_id: selectedVariantId || undefined,
-      size: selectedSize || undefined,
-      name,
+    const trimmedName = name.trim();
+    const firstSpaceIdx = trimmedName.indexOf(" ");
+    const firstName =
+      firstSpaceIdx === -1 ? trimmedName : trimmedName.slice(0, firstSpaceIdx);
+    const lastName = firstSpaceIdx === -1 ? "" : trimmedName.slice(firstSpaceIdx + 1);
+    const purchasableId = selectedVariantId || effectiveProductId;
+
+    const sharedAddress = {
+      first_name: firstName,
+      last_name: lastName,
       phone,
+      state: "",
+      city: "",
+      area: "",
+      postcode: "",
       address,
-      notes,
-      quantity,
-      shipping_id: selectedShipping,
-      total_amount: total,
+      landmark: "",
+    };
+
+    const payload = {
+      channel_id: channelId ?? 2,
+      amount_due: total,
+      amount_paid: 0,
+      amount_change: 0,
+      billing_address: { ...sharedAddress, type: "billing" },
+      shipping_address: { ...sharedAddress, type: "shipping" },
+      payment: {
+        intent: "sale",
+        status: "unpaid",
+        meta_data: [
+          {
+            provider: "Cash on Delivery",
+            type: "cash",
+            amount: String(total),
+            payment_information: notes || "Cash on Delivery",
+            vouchers: [],
+          },
+        ],
+      },
+      purchasable: [
+        {
+          id: purchasableId,
+          quantity,
+          discount_should_apply: true,
+          order_quantity: quantity,
+          uom_id: 1,
+          uom: "pcs",
+          order_uom_id: 1,
+          order_uom: "pcs",
+          batch_id: null,
+        },
+      ],
+      meta_data: {
+        additional_amount_breakdown:
+          shippingCharge > 0
+            ? [
+                {
+                  key: "additional_amount",
+                  title: selectedShippingOption?.label || "Shipping Charge",
+                  amount: shippingCharge,
+                },
+              ]
+            : [],
+      },
     };
 
     if (submitUrl) {
@@ -238,6 +382,30 @@ export default function OrderForm({
           body: JSON.stringify(payload),
         });
         if (!res.ok) throw new Error("API submission failed");
+        const response = (await res.json().catch(() => null)) as Record<
+          string,
+          unknown
+        > | null;
+        const responseData = response?.["data"] as
+          | Record<string, unknown>
+          | undefined;
+        const responseOrder = response?.["order"] as
+          | Record<string, unknown>
+          | undefined;
+        const transactionId =
+          responseData?.["id"] ??
+          responseData?.["order_number"] ??
+          responseOrder?.["id"] ??
+          response?.["id"] ??
+          `ORDER_${Date.now()}`;
+
+        onPurchase?.({
+          transaction_id: String(transactionId),
+          currency: currencyCode,
+          value: total,
+          shipping: shippingCharge,
+          items: [buildGtmItem()],
+        });
         setName(""); setPhone(""); setAddress(""); setNotes(""); setQuantity(1);
         setIsOrderCompleted(true);
       } catch {
@@ -324,6 +492,7 @@ export default function OrderForm({
             displayProductName={displayProductName}
             displayProductPrice={displayProductPrice}
             displayProductImage={displayProductImage}
+            maxVariantsToShow={maxVariantsToShow ?? maxProductsToShow}
           />
 
           <CartSummary
@@ -356,6 +525,7 @@ export default function OrderForm({
             selectedShipping={selectedShipping}
             setSelectedShipping={setSelectedShipping}
             isSubmitting={isSubmitting}
+            onBeginCheckout={handleBeginCheckout}
           />
         </form>
       </div>

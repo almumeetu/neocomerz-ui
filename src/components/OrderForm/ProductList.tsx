@@ -28,7 +28,13 @@ export default function ProductList({
   displayProductName,
   displayProductPrice,
   displayProductImage,
+  maxVariantsToShow,
 }: OrderFormProductListProps) {
+  const visibleVariants =
+    typeof maxVariantsToShow === "number" && maxVariantsToShow > 0
+      ? variants.slice(0, Math.floor(maxVariantsToShow))
+      : variants;
+
   return (
     <div className="flex-1 p-3 lg:p-6 bg-white flex flex-col justify-start items-start gap-4 border-b lg:border-b-0 lg:border-r border-neutral-200">
       <h3 className="text-zinc-800 text-2xl lg:text-3xl font-bold leading-tight">
@@ -42,7 +48,7 @@ export default function ProductList({
       ) : productData ? (
         <div className="w-full flex flex-col gap-3">
           {variants.length > 0 ? (
-            variants.map((variant) => {
+            visibleVariants.map((variant) => {
               const isSelected =
                 String(variant["id"]) === String(selectedVariantId);
 

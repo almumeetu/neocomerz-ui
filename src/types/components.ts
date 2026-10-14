@@ -405,6 +405,24 @@ export type ShippingOption = {
 
 export type AllowedVariant = { name: string };
 
+export type OrderFormGtmItem = {
+  item_id: string;
+  item_name: string;
+  item_category: string;
+  item_variant: string;
+  price: number;
+  currency: string;
+  quantity: number;
+};
+
+export type OrderFormGtmPayload = {
+  currency: string;
+  value: number;
+  shipping?: number;
+  transaction_id?: string;
+  items: OrderFormGtmItem[];
+};
+
 export type OrderFormProps = {
   title?: string;
   description?: string;
@@ -430,6 +448,15 @@ export type OrderFormProps = {
   productId?: string | number;
   orderPlacementUrl?: string;
   allowedVariants?: AllowedVariant[];
+  maxVariantsToShow?: number;
+  /** @deprecated Use maxVariantsToShow instead. */
+  maxProductsToShow?: number;
+  channelId?: number;
+  currencyCode?: string;
+  onProductView?: (payload: OrderFormGtmPayload) => void;
+  onAddToCart?: (payload: OrderFormGtmPayload) => void;
+  onCheckoutBegin?: (payload: OrderFormGtmPayload) => void;
+  onPurchase?: (payload: OrderFormGtmPayload) => void;
 };
 
 export type OrderFormBillingFieldsProps = {
@@ -453,6 +480,7 @@ export type OrderFormBillingFieldsProps = {
   selectedShipping: string;
   setSelectedShipping: (id: string) => void;
   isSubmitting: boolean;
+  onBeginCheckout?: () => void;
 };
 
 export type OrderFormCartSummaryProps = {
@@ -485,4 +513,5 @@ export type OrderFormProductListProps = {
   displayProductName: string;
   displayProductPrice: string;
   displayProductImage?: string;
+  maxVariantsToShow?: number;
 };

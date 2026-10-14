@@ -186,6 +186,8 @@ export type {
   ShippingOption,
   AllowedVariant,
   OrderFormProps,
+  OrderFormGtmItem,
+  OrderFormGtmPayload,
   OrderFormBillingFieldsProps,
   OrderFormCartSummaryProps,
   OrderFormProductListProps,
