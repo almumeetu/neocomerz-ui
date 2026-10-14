@@ -22,3 +22,13 @@ pnpm-lock.yaml
 # Auth / registry secrets
 .env.npmrc
 .npmrc
+
+/node_modules
+
+/preview/.next
+
+.next
+preview/.next
+preview/node_modules
+preview/.next/dev
+
